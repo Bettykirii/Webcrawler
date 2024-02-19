@@ -1,50 +1,71 @@
-const cheerio = require("cheerio");
-const pretty = require("pretty");
+const fs = require('fs');
+const cheerio = require('cheerio');
 
+// Function to extract data about each case from the saved result pages - the pages saved 
+function extractCaseData(html) {
+    const $ = cheerio.load(html);
 
-var fs = require('fs');
+    // Array to store case objects
+    const cases = [];
 
+    // Iterate over each case listing
+    $('.case-listing').each((index, element) => {
+        const caseData = {};
 
+        // Extract all the data for each element
+        caseData.title = $(element).find('.title').text().trim();
+        caseData.case_number = $(element).find('.case-number').text().trim();
+        caseData.judge = $(element).find('.judge').text().trim();
+        caseData.court = $(element).find('.court').text().trim();
+        caseData.parties = $(element).find('.parties').text().trim();
+        caseData.advocates = $(element).find('.advocates').text().trim();
+        caseData.citation = $(element).find('.citation').text().trim();
+        caseData.date_delivered = $(element).find('.date-delivered').text().trim();
+        caseData.URI = $(element).find('.read-more').attr('href');
 
-var $ = cheerio.load(fs.readFileSync('Crawling.html'));
-// console.log(parsedHtmlPage.html());
+        // Format date delivered
+        const dateParts = caseData.date_delivered.split('/');
+        const formattedDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+        caseData.date_delivered_formatted = formattedDate;
 
-var caseObjects = []
+        // Use regex to extract plaintiff and defendant from parties string
+        const partiesRegex = /(.+?)\s+(?:v\.|vs\.|versus)\s+(.+)/i;
+        const partiesMatch = caseData.parties.match(partiesRegex);
+        if (partiesMatch) {
+            caseData.plaintiff = partiesMatch[1].trim();
+            caseData.defendant = partiesMatch[2].trim();
+        } else {
+            caseData.plaintiff = null;
+            caseData.defendant = null;
+        }
 
-// const listItems = $("html body body-section .container .row .span9 #myTabContent.tab-content.minecontent #google-search.tab-pane.fade.active.in .post ");
- $(".post").each((index, element) => {
-    // console.log($($(element).find("td")[0]).text());
+        // Push case object to array
+        cases.push(caseData);
+    });
 
-    var caseObject = {};
-    const ths = $(element).find(".t_full");
-    // console.log("Ths",ths.html().trim())
-    const h2 = $(ths).find("h2").text();
-    caseObject["title"] = h2;
-    // console.log("H2", h2.text());
-    
-    const caseNumber = $(ths).find(".case-number").text();
-    const caseNumberSpan = $(ths).find(".case-number > span:nth-child(1)").text();
-    caseObject["case_number"] = caseNumber.replace(caseNumberSpan, "");
-    
-    const dateDelivered = $(ths).find(".date-delivered").text();
-    const dateDeliveredSpan = $(ths).find(".date-delivered > span:nth-child(1)").text();
-    caseObject["date_delivered"] = dateDelivered.replace(dateDeliveredSpan, "");
+    return cases;
+}
 
-    const pTags = $(element).find("p");
-    const caseDetailHeaders = ["judge","court","parties","plaintiff","defendant","advocates", "citation","date_delivered_formatted"];
-    //  console.log ("This is P",pTags.text());
-    $(pTags).each((index, pTag) =>{
-        const span = $(pTag).find('span:nth-child(1)').text();
-        console.log("span: ", span);
-        const jsonVal = $(pTag).text().replace(span, "").replace("\n", "");
-        console.log(jsonVal);
+// Function to read and parse HTML files and extract case data
+function extractCasesFromFiles() {
+    const caseDataArray = [];
 
-        caseObject[caseDetailHeaders[index]] = jsonVal.replace("\t \n", " ");
-   });
+    try {
+        // Loop through saved HTML files
+        for (let page = 1; page <= 5; page++) {
+            const html = fs.readFileSync(`crawling${page}.html`, 'utf8');
+            const cases = extractCaseData(html);
+            caseDataArray.push(...cases);
+            console.log(`Cases extracted from page ${page}: ${cases.length}`);
+        }
 
-   caseObjects.push(caseObject);
-   console.log("Cases\n");
-   console.log("Case: ", caseObjects);
-});
+        // Write case data to JSON file
+        fs.writeFileSync('cases.json', JSON.stringify(caseDataArray, null, 2));
+        console.log('Case data saved to cases.json successfully.',caseDataArray);
+    } catch (error) {
+        console.error('Error occurred:', error);
+    }
+}
 
-
+// Call the function to extract case data from saved files
+extractCasesFromFiles();
