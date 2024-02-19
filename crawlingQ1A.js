@@ -25,7 +25,7 @@ async function searchAndSaveResults() {
 
             // Save HTML to file
             fs.writeFileSync(`crawling${page}.html`, html);
-            console.log(`Page ${page} saved successfully.`, html);
+            console.log(`Page ${page} saved successfully.`);
         }
     } catch (error) {
         console.error('Error occurred:', error);
